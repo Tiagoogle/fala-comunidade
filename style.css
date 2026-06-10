@@ -1,0 +1,107 @@
+/* Fala Comunidade — página inicial */
+
+:root {
+  --verde: #007e7a;
+  --verde-escuro: #00524e;
+  --amarelo: #edb111;
+  --fundo: #f2f5f4;
+  --texto: #1a2e2b;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--fundo);
+  color: var(--texto);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+header {
+  background: linear-gradient(135deg, var(--verde-escuro), var(--verde));
+  color: #fff;
+  text-align: center;
+  padding: 48px 20px 40px;
+}
+
+header h1 {
+  margin: 0;
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: clamp(1.8rem, 5vw, 2.6rem);
+}
+
+.lema {
+  margin: 10px auto 0;
+  max-width: 560px;
+  opacity: 0.9;
+  font-size: 0.98rem;
+}
+
+main {
+  max-width: 920px;
+  margin: -24px auto 40px;
+  padding: 0 16px;
+}
+
+.portas {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+}
+
+@media (min-width: 760px) {
+  .portas { grid-template-columns: 1fr 1fr; }
+}
+
+.porta {
+  display: block;
+  background: #fff;
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 4px 18px rgba(16, 42, 40, 0.1);
+  color: inherit;
+  text-decoration: none;
+}
+
+.porta h2 { margin: 8px 0 8px; color: var(--verde-escuro); }
+.porta p { font-size: 0.92rem; line-height: 1.5; }
+.porta-icone { font-size: 2rem; }
+
+.porta-analista {
+  border: 2px solid var(--verde);
+  transition: transform 0.15s ease;
+}
+
+.porta-analista:hover { transform: translateY(-3px); }
+
+.porta-botao {
+  display: inline-block;
+  margin-top: 8px;
+  background: var(--verde);
+  color: #fff;
+  font-weight: 700;
+  padding: 12px 20px;
+  border-radius: 10px;
+}
+
+.chat-box {
+  background: var(--fundo);
+  border-radius: 12px;
+  padding: 14px;
+  margin: 10px 0;
+}
+
+.message.assistente {
+  background: #fff;
+  border-left: 4px solid var(--amarelo);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.92rem;
+}
+
+footer {
+  text-align: center;
+  padding: 22px 16px 34px;
+  color: #5d6f6c;
+  font-size: 0.8rem;
+}

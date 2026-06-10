@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Fala Comunidade — Central do Analista</title>
+  <meta name="description" content="App do analista de relacionamento com comunidades na mineração: registro assistido por IA, demandas com SLA, stakeholders, risco social e relatórios automáticos.">
+  <meta name="theme-color" content="#007e7a">
+
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="FalaComunidade">
+
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <header class="topo">
+    <div class="marca">
+      <strong>Fala Comunidade</strong>
+      <small>Central do Analista · Relacionamento com Comunidades</small>
+    </div>
+    <a class="btn-ia-topo" href="#/assistente">✨ FalaIA</a>
+  </header>
+
+  <main id="conteudo" aria-live="polite"></main>
+
+  <nav class="nav" aria-label="Navegação principal">
+    <a class="nav-item" data-nav="inicio" href="#/inicio"><span class="icone">🏠</span>Início</a>
+    <a class="nav-item" data-nav="demandas" href="#/demandas"><span class="icone">📋</span>Demandas</a>
+    <a class="nav-registrar" data-nav="registrar" href="#/registrar" aria-label="Registrar atendimento">＋</a>
+    <a class="nav-item" data-nav="pessoas" href="#/pessoas"><span class="icone">👥</span>Pessoas</a>
+    <a class="nav-item" data-nav="mais" href="#/mais"><span class="icone">☰</span>Mais</a>
+  </nav>
+
+  <div id="toast" role="status"></div>
+
+  <script src="js/util.js"></script>
+  <script src="js/ia.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/stats.js"></script>
+  <script src="js/views.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
