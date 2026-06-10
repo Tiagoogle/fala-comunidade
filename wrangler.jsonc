@@ -1,0 +1,11 @@
+// Configuração do Cloudflare Workers (Workers Builds usa `npx wrangler deploy`).
+// Site 100% estático: a raiz é servida como assets (landing em / e PWA em /app/).
+{
+  "$schema": "https://unpkg.com/wrangler/config-schema.json",
+  "name": "falacomunidade",
+  "compatibility_date": "2026-06-10",
+  "assets": {
+    "directory": "./",
+    "html_handling": "auto-trailing-slash"
+  }
+}

@@ -46,9 +46,9 @@ A Central do Analista ataca exatamente essas tarefas:
 
 ## Como usar
 
-### Direto no navegador (GitHub Pages)
+### Direto no navegador (GitHub Pages ou Cloudflare Workers)
 
-Publique o repositório no GitHub Pages e acesse `https://<usuario>.github.io/fala-comunidade/app/` no celular. No Android (Chrome): **Adicionar à tela inicial**. No iPhone (Safari): **Compartilhar → Adicionar à Tela de Início**. O app instala como PWA e funciona offline.
+Publique o repositório no GitHub Pages e acesse `https://<usuario>.github.io/fala-comunidade/app/` no celular — ou use o deploy automático no **Cloudflare Workers** ([`wrangler.jsonc`](wrangler.jsonc) já configura o site como assets estáticos; o Workers Builds publica a cada push). No Android (Chrome): **Adicionar à tela inicial**. No iPhone (Safari): **Compartilhar → Adicionar à Tela de Início**. O app instala como PWA e funciona offline.
 
 ### Localmente
 
