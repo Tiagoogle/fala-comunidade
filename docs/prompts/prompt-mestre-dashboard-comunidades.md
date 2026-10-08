@@ -1,6 +1,6 @@
 # Prompt Mestre — Dashboard de Relacionamento com Comunidades (Mineração)
 
-> **Como usar:** preencha as variáveis do bloco `0`, copie tudo a partir de `## PROMPT` e cole no
+> **Como usar:** preencha as variáveis do bloco `0`, copie de `## PROMPT` até o fim da seção 10 e cole no
 > modelo/ferramenta de geração (Claude, v0, Lovable, Bolt, Cursor etc.).
 > **Execução em duas fases:** a Fase 1 (seções 1–10) gera a Visão Geral em alta fidelidade.
 > Os módulos do Anexo A (Fase 2) devem ser pedidos **um por vez**, na mesma conversa ou projeto,
