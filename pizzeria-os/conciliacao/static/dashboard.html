@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PIZZERIA OS — Exceções e trilha de recuperação</title>
+<style>
+  :root{--bg:#fafaf7;--fg:#1b1b1b;--muted:#6b6b6b;--line:#e3e1da;--accent:#a8741a;--bad:#b3261e;--ok:#1e7a3c}
+  @media (prefers-color-scheme:dark){:root{--bg:#161616;--fg:#eee;--muted:#9a9a9a;--line:#2c2c2c;--accent:#d9a441;--bad:#ff8a80;--ok:#7bd88f}}
+  body{font:14px/1.45 system-ui,sans-serif;background:var(--bg);color:var(--fg);margin:0;padding:24px;max-width:1200px}
+  h1{font-size:20px;margin:0 0 4px} .muted{color:var(--muted)}
+  .bar{display:flex;gap:8px;align-items:center;margin:16px 0;flex-wrap:wrap}
+  input,select,button{font:inherit;padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit}
+  button{cursor:pointer;border-color:var(--accent)}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:12px 0}
+  .kpi{border:1px solid var(--line);border-radius:8px;padding:12px} .kpi b{display:block;font-size:22px;font-variant-numeric:tabular-nums}
+  table{width:100%;border-collapse:collapse;margin-top:8px} th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
+  td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap} tr:hover{background:color-mix(in srgb,var(--accent) 7%,transparent);cursor:pointer}
+  .pill{font-size:12px;padding:2px 8px;border-radius:99px;border:1px solid var(--line);white-space:nowrap}
+  .trail{border-left:2px solid var(--accent);margin:12px 0;padding-left:12px}
+  .trail div{margin:6px 0} code{font-size:12px;color:var(--muted)}
+  .ok{color:var(--ok)} .bad{color:var(--bad)}
+</style>
+</head>
+<body>
+<h1>Exceções e trilha de recuperação</h1>
+<div class="muted">Cada linha é uma divergência entre contrato (N1), repasse (N2) e banco (N3). Clique para ver a cadeia do ledger.</div>
+<div class="bar">
+  <label>Tenant <input id="tenant" placeholder="pizzaria-centro"></label>
+  <select id="status"><option value="">todos os status</option><option>open</option><option>human_queue</option><option>in_recovery</option><option>resolved</option><option>dismissed</option></select>
+  <button onclick="load()">Carregar</button>
+  <span id="chain" class="muted"></span>
+</div>
+<div class="kpis" id="kpis"></div>
+<table><thead><tr><th>Tipo</th><th>Pedido / ciclo</th><th>Causa provável</th><th class="num">Valor</th><th>Status</th><th>Ledger</th></tr></thead><tbody id="rows"></tbody></table>
+<div id="detail"></div>
+<script>
+const brl = c => (c<0?"-":"")+"R$ "+Math.floor(Math.abs(c)/100).toLocaleString("pt-BR")+","+String(Math.abs(c)%100).padStart(2,"0");
+const H = () => ({"X-Tenant-Id": document.getElementById("tenant").value.trim()});
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+async function load(){
+  const st = document.getElementById("status").value;
+  const r = await fetch("/exceptions"+(st?"?status="+st:""), {headers:H()});
+  if(!r.ok){document.getElementById("rows").innerHTML=`<tr><td colspan=6 class=bad>${esc((await r.json()).detail)}</td></tr>`;return}
+  const data = await r.json();
+  const sum = (f) => data.filter(f).reduce((a,e)=>a+e.amount_cents,0);
+  document.getElementById("kpis").innerHTML = [
+    ["Exceções", data.length, false],
+    ["Recuperável detectado", sum(e=>e.amount_cents>0 && e.status==="open"), true],
+    ["Em recuperação", sum(e=>e.status==="in_recovery"), true],
+    ["Confirmado", sum(e=>e.ledger_state==="confirmed"||e.ledger_state==="billed"), true],
+    ["Fila humana", data.filter(e=>e.status==="human_queue").length, false],
+  ].map(([k,v,m])=>`<div class=kpi><span class=muted>${k}</span><b>${m?brl(v):v}</b></div>`).join("");
+  document.getElementById("rows").innerHTML = data.map(e=>`<tr onclick="trail('${e.id}')">
+    <td>${esc(e.type)}</td><td>${esc(e.order_ref||"—")}<br><code>${esc(e.cycle_id)}</code></td><td>${esc(e.probable_cause)}</td>
+    <td class=num>${brl(e.amount_cents)}</td><td><span class=pill>${esc(e.status)}</span></td><td><span class=pill>${esc(e.ledger_state||"—")}</span></td></tr>`).join("");
+  const v = await (await fetch("/ledger/verify",{headers:H()})).json();
+  document.getElementById("chain").innerHTML = v.valid ? "<span class=ok>cadeia do ledger íntegra</span>" : "<span class=bad>cadeia do ledger ADULTERADA</span>";
+}
+async function trail(id){
+  const t = await (await fetch(`/exceptions/${id}/trail`,{headers:H()})).json();
+  document.getElementById("detail").innerHTML = `<h3>Trilha ${t.chain_valid?"<span class=ok>(verificada)</span>":"<span class=bad>(inválida)</span>"}</h3><div class=trail>`+
+    t.ledger.map(x=>`<div><b>${esc(x.state)}</b> · ${brl(x.amount_cents)} · ${esc(x.actor)} · ${esc(x.state_changed_at)} ${x.confirmation_method?"· "+esc(x.confirmation_method):""}<br><code>hash ${esc(x.entry_hash.slice(0,16))}… ← ${esc((x.prev_entry_hash||"∅").slice(0,16))}</code></div>`).join("")+"</div>";
+}
+</script>
+</body>
+</html>

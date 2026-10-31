@@ -1,0 +1,43 @@
+name: pizzeria-os
+
+on:
+  pull_request:
+    paths: ["pizzeria-os/**", ".github/workflows/pizzeria-os.yml"]
+  push:
+    branches: [main]
+    paths: ["pizzeria-os/**"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pizzeria-os
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: pzos
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/pzos
+      REQUIRE_DB: "1"   # guardas de banco não podem ser puladas no CI
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e '.[dev]'
+      - name: Invariantes e guardas de banco (100% dos testes devem passar)
+        run: pytest tests/invariantes -q
+      - name: Motor — cobertura mínima de 90% (Passes 0 a 4 + solver)
+        run: >
+          pytest tests -q --cov=conciliacao --cov-report=term-missing
+          --cov-fail-under=85
+      - name: Cobertura do motor isolada
+        run: >
+          coverage report --include="conciliacao/engine.py,conciliacao/canonical.py,conciliacao/subset_sum.py"
+          --fail-under=90

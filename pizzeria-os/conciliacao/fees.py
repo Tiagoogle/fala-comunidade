@@ -54,6 +54,22 @@ class FeeRuleBook:
         self._rules.append(rule)
         return rule
 
+    def supersede(self, new_rule: FeeRule, change_date: date) -> FeeRule:
+        """Fecha a versão vigente em change_date e cria a nova a partir dela (Onboarding Etapa 2)."""
+        from dataclasses import replace
+        if new_rule.valid_from != change_date:
+            raise FeeRuleError("nova versão deve começar na data da mudança")
+        current = self.effective(new_rule.tenant_id, new_rule.channel, change_date)
+        if current.valid_from >= change_date:
+            raise FeeRuleError("mudança deve ser posterior ao início da versão vigente")
+        idx = self._rules.index(current)
+        self._rules[idx] = replace(current, valid_to=change_date)
+        try:
+            return self.add(new_rule)
+        except FeeRuleError:
+            self._rules[idx] = current
+            raise
+
     def effective(self, tenant_id: str, channel: Channel, on: date) -> FeeRule:
         for r in self._rules:
             if r.tenant_id == tenant_id and r.channel == channel and r.covers(on):
@@ -78,10 +94,14 @@ def compute_expected(event: OrderEvent, rule: FeeRule, calendar: CycleCalendar) 
     if event.promo_discount_cents > event.gross_cents:
         raise FeeRuleError("desconto maior que o bruto")
 
+    from .canonical import normalize_ref  # import local: canonical depende de fees (CycleCalendar)
+    ref = normalize_ref(event.external_order_ref)
+    if ref is None:
+        raise FeeRuleError("external_order_ref vazio após canonicalização")
     cycle = calendar.cycle_id(event.channel, event.occurred_on)
     common = dict(
         tenant_id=event.tenant_id, order_id=event.order_id,
-        external_order_ref=event.external_order_ref, channel=event.channel,
+        external_order_ref=ref, channel=event.channel,
         fee_rule_version_id=rule.id, cycle_id=cycle,
     )
 

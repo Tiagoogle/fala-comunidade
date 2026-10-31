@@ -1,25 +1,32 @@
-"""Persistência em memória com isolamento por tenant verificado na camada de aplicação.
+"""Persistência em memória com isolamento por tenant na camada de aplicação (INVARIANTE 2).
 
-Em produção, substituir por Postgres (db/schema.sql) — o RLS do banco é a segunda barreira,
-não a única: toda leitura/escrita aqui exige o tenant explícito e recusa itens de outro tenant.
+Não existe método de leitura sem tenant: a única porta de entrada é Store.tenant(tenant_id), que
+recusa tenant vazio. Produção: Postgres com as migrations em db/migrations (RLS é a segunda barreira).
 """
 from __future__ import annotations
 
-from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime
 
 from .fees import FeeRuleBook
-from .gates import DecisionGates
-from .ledger import RecoveryLedger
+from .flags import FlagService
+from .ledger import RecoveryLedgerService
 from .models import (
     AttributionContract, BankTransaction, BillingCharge, ExpectedReceivable, ReconciliationException,
     ReconciliationMatch, SettlementLine,
 )
+from .onboarding import OnboardingState, TenantProfile
+from .subset_sum import SolveResult
+
+
+class TenantIsolationError(PermissionError):
+    pass
 
 
 @dataclass
 class TenantData:
+    profile: TenantProfile
+    onboarding: OnboardingState
+    ledger: RecoveryLedgerService
     expected: dict[str, ExpectedReceivable] = field(default_factory=dict)
     settlements: dict[str, SettlementLine] = field(default_factory=dict)
     bank: dict[str, BankTransaction] = field(default_factory=dict)
@@ -33,63 +40,36 @@ class TenantData:
     order_event_keys: set[tuple] = field(default_factory=set)
     closed_cycles: set[str] = field(default_factory=set)
     reconciled_cycles: set[str] = field(default_factory=set)
-    ledger: RecoveryLedger | None = None
+    subset_results: dict[str, SolveResult] = field(default_factory=dict)
 
 
 class Store:
-    def __init__(self, gates: DecisionGates) -> None:
-        self.gates = gates
+    def __init__(self, flags: FlagService) -> None:
+        self.flags = flags
         self.fee_rules = FeeRuleBook()
-        self._data: dict[str, TenantData] = defaultdict(TenantData)
+        self._data: dict[str, TenantData] = {}
 
-    def tenant(self, tenant_id: str) -> TenantData:
-        if not tenant_id or not tenant_id.strip():
-            raise PermissionError("tenant_id obrigatório")
-        td = self._data[tenant_id]
-        if td.ledger is None:
-            td.ledger = RecoveryLedger(tenant_id, self.gates)
+    def create_tenant(self, profile: TenantProfile) -> TenantData:
+        if profile.tenant_id in self._data:
+            raise ValueError("tenant já existe")
+        self.flags.init_tenant(profile.tenant_id)
+        td = TenantData(profile, OnboardingState(profile.tenant_id), RecoveryLedgerService(profile.tenant_id, self.flags))
+        self._data[profile.tenant_id] = td
         return td
 
+    def tenant(self, tenant_id: str) -> TenantData:
+        if not tenant_id or not str(tenant_id).strip():
+            raise TenantIsolationError("tenant_id obrigatório em toda leitura/escrita")
+        try:
+            return self._data[tenant_id]
+        except KeyError:
+            raise LookupError(f"tenant {tenant_id!r} inexistente") from None
+
+    def exists(self, tenant_id: str) -> bool:
+        return tenant_id in self._data
+
     @staticmethod
-    def _check(tenant_id: str, items) -> None:
+    def check(tenant_id: str, items) -> None:
         for it in items:
             if it.tenant_id != tenant_id:
-                raise PermissionError("tentativa de gravar item de outro tenant")
-
-    def add_expected(self, tenant_id: str, items: list[ExpectedReceivable]) -> None:
-        self._check(tenant_id, items)
-        td = self.tenant(tenant_id)
-        for it in items:
-            td.expected[it.id] = it
-
-    def add_settlements(self, tenant_id: str, items: list[SettlementLine]) -> None:
-        self._check(tenant_id, items)
-        td = self.tenant(tenant_id)
-        for it in items:
-            td.settlements[it.id] = it
-
-    def add_bank(self, tenant_id: str, items: list[BankTransaction]) -> None:
-        self._check(tenant_id, items)
-        td = self.tenant(tenant_id)
-        for it in items:
-            td.bank[it.id] = it
-
-    def upsert_exceptions(self, tenant_id: str, items: list[ReconciliationException], at: datetime) -> list[ReconciliationException]:
-        """Idempotente por fingerprint: reexecutar o motor atualiza, não duplica, e preserva status/histórico."""
-        self._check(tenant_id, items)
-        td = self.tenant(tenant_id)
-        new = []
-        for exc in items:
-            existing_id = td.exceptions_by_fp.get(exc.fingerprint)
-            if existing_id:
-                cur = td.exceptions[existing_id]
-                if cur.amount_cents != exc.amount_cents:
-                    cur.log("amount_revised", "engine", at, old=cur.amount_cents, new=exc.amount_cents)
-                    cur.amount_cents = exc.amount_cents
-                cur.match_id = exc.match_id
-                continue
-            exc.log("created", "engine", at)
-            td.exceptions[exc.id] = exc
-            td.exceptions_by_fp[exc.fingerprint] = exc.id
-            new.append(exc)
-        return new
+                raise TenantIsolationError("tentativa de gravar item de outro tenant")

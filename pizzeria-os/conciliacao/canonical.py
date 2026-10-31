@@ -16,14 +16,27 @@ from .fees import CycleCalendar
 from .models import BankTransaction, Channel, EventType, SettlementLine
 from .money import parse_brl
 
-_REF_CLEAN = re.compile(r"[^A-Z0-9-]")
+_REF_CLEAN = re.compile(r"[^A-Z0-9]")
+_CHANNEL_AFFIXES = re.compile(r"^(IFOOD|IF|RAPPI|RP)|(IFOOD|RAPPI)$")
+_DIGITS = re.compile(r"\d+")
 
 
 def normalize_ref(ref: str | None) -> str | None:
+    """Canonicaliza external_order_ref (§6.2): maiúsculas, sem hífens/separadores, sem prefixo/sufixo
+    de canal e sem zeros à esquerda. '#if-000123-IFOOD' → '123'."""
     if ref is None:
         return None
-    r = _REF_CLEAN.sub("", str(ref).strip().upper().lstrip("#"))
+    r = _REF_CLEAN.sub("", str(ref).strip().upper())
+    r = _CHANNEL_AFFIXES.sub("", r).lstrip("0")
     return r or None
+
+
+def loose_ref(ref: str | None) -> str | None:
+    """Chave frouxa para a re-canonicalização do Passe 3 (CT-3.2): apenas dígitos, sem zeros à esquerda."""
+    if ref is None:
+        return None
+    digits = "".join(_DIGITS.findall(str(ref))).lstrip("0")
+    return digits or None
 
 
 def source_hash(*parts) -> str:
