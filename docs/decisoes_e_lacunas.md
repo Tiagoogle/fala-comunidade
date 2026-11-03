@@ -29,6 +29,8 @@
 - **Cifra no aparelho**: a chave AES fica no próprio navegador (não exportável). Protege contra extração
   casual do banco, não contra um aparelho comprometido.
 - **Integrações** CRM/ouvidoria/ERP são stubs com outbox (fora do escopo do MVP).
+- **Uma única máquina no Fly** (SQLite em volume): sem alta disponibilidade até migrar para Postgres.
+- **Rotação da chave de cifra** não automatizada.
 - **Indicadores** calculados em memória; para volume real, usar visões SQL materializadas.
 
 ## Bloqueios antes do piloto (cap. 17)

@@ -1,0 +1,28 @@
+# Frontend (PWA do agente de campo) na Netlify; API no Fly.io (região gru) via proxy de mesma origem.
+[build]
+  publish = "frontend"
+  command = ""
+
+# Proxy /api/* → backend. "signed" faz a Netlify assinar cada requisição (JWT HS256 em x-nf-sign)
+# com o valor da variável de ambiente ESCUTA_SEGREDO_PROXY do site — o backend só confia no IP do
+# cliente (x-nf-client-connection-ip) quando a assinatura confere.
+[[redirects]]
+  from = "/api/*"
+  to = "https://escuta-mais.fly.dev/:splat"
+  status = 200
+  force = true
+  signed = "ESCUTA_SEGREDO_PROXY"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer"
+    Permissions-Policy = "microphone=(self), camera=(), geolocation=()"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains"
+
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"

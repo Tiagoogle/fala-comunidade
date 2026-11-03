@@ -38,7 +38,8 @@ def init_engine(url: str | None = None) -> Engine:
             kwargs["poolclass"] = StaticPool
     _engine = create_engine(url, future=True, **kwargs)
     _SessionLocal = sessionmaker(bind=_engine, expire_on_commit=False, future=True)
-    Base.metadata.create_all(_engine)
+    if get_settings().ambiente != "producao":
+        Base.metadata.create_all(_engine)  # produção: schema só via Alembic (alembic upgrade head)
     return _engine
 
 

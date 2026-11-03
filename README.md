@@ -32,7 +32,7 @@ SQLite (dev/piloto) → Postgres via ESCUTA_DATABASE_URL
 ```bash
 cd backend
 pip install -e ".[dev]"
-python -m pytest              # 86 testes: critérios de aceite 1–19, diálogos D-01…D-13, adversariais
+python -m pytest              # 101 testes: critérios de aceite 1–19, diálogos D-01…D-13, adversariais
 uvicorn escuta.api.app:app --port 8000
 # abrir http://localhost:8000/app/  — chaves de dev: campo-dev, revisor-dev, sigilo-dev, gestor-dev, governanca-dev
 ```
@@ -48,9 +48,18 @@ Variáveis principais:
 | `ESCUTA_CHAVE_CIFRA` | chave local de dev | **Obrigatória em produção** (KMS). Cifra contatos, anexos e turnos de conversa. |
 | `ESCUTA_CHAVES_ACESSO` | chaves de dev | JSON `{chave: {papel, id, territorio}}`. Substituir por SSO. |
 | `ESCUTA_MINIMO_N` | `5` | Mínimo por célula nos indicadores. |
+| `ESCUTA_AMBIENTE` | `desenvolvimento` | `producao` exige segredos explícitos e usa só Alembic para o schema. |
+| `ESCUTA_CONFIAR_PROXY` / `ESCUTA_SEGREDO_PROXY` | `0` / — | IP do cliente atrás de Netlify → Fly (ver `docs/deploy.md`). |
 
 Rotinas periódicas (agendar via cron): `POST /admin/rotinas` — sinaliza atrasos à coordenação e processa o
 outbox de integrações (retry + dead-letter).
+
+## Deploy
+
+Backend no **Fly.io, região São Paulo** (`fly.toml`, `backend/Dockerfile`, Alembic) e PWA na **Netlify**, com
+proxy assinado `/api/*` (`netlify.toml`). CI: `.github/workflows/ci.yml`; deploy automático após CI verde
+em `main`: `.github/workflows/deploy.yml` (secret `FLY_API_TOKEN`). Passo a passo e operação:
+[`docs/deploy.md`](docs/deploy.md).
 
 ## Documentação
 

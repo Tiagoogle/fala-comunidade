@@ -2,7 +2,7 @@
 // Sem build, sem dependências. A fila offline fica no IndexedDB, cifrada com AES-GCM
 // (chave não exportável gerada no próprio aparelho via WebCrypto).
 
-const API = location.origin;
+const API = location.origin + (window.ESCUTA_API || "");
 const $ = (s) => document.querySelector(s);
 const chave = () => { try { return localStorage.getItem("escuta.chave") || ""; } catch { return ""; } };
 const cab = () => ({ "Content-Type": "application/json", "X-Chave-Acesso": chave() });

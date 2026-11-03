@@ -60,6 +60,10 @@ AREAS_POR_TEMA: dict[str, str] = {
 
 @dataclass
 class Settings:
+    ambiente: str = field(default_factory=lambda: _env("ESCUTA_AMBIENTE", "desenvolvimento"))  # desenvolvimento | producao
+    # Só confie em cabeçalhos de IP (Fly-Client-IP / X-Forwarded-For) atrás de proxy conhecido.
+    confiar_proxy: bool = field(default_factory=lambda: _env("ESCUTA_CONFIAR_PROXY", "0") == "1")
+    segredo_proxy: str | None = field(default_factory=lambda: os.environ.get("ESCUTA_SEGREDO_PROXY"))
     database_url: str = field(default_factory=lambda: _env("ESCUTA_DATABASE_URL", f"sqlite:///{BASE_DIR.parent / 'escuta.db'}"))
     uf_padrao: str = field(default_factory=lambda: _env("ESCUTA_UF_PADRAO", "MG"))
     dir_anexos: Path = field(default_factory=lambda: Path(_env("ESCUTA_DIR_ANEXOS", str(BASE_DIR.parent / "anexos"))))
@@ -99,6 +103,29 @@ def _carregar_chaves() -> dict[str, dict[str, str]]:
         "gestor-dev": {"papel": "gestor", "id": "gestor-01", "territorio": "*"},
         "governanca-dev": {"papel": "governanca", "id": "comite-01", "territorio": "*"},
     }
+
+
+class ConfiguracaoInsegura(RuntimeError):
+    """Configuração incompatível com produção — o app se recusa a subir."""
+
+
+def validar_producao(s: "Settings") -> None:
+    """Em produção, nada de chave de cifra efêmera nem chaves de acesso de desenvolvimento."""
+    if s.ambiente != "producao":
+        return
+    problemas = []
+    if not s.chave_cifra:
+        problemas.append("ESCUTA_CHAVE_CIFRA ausente (chave Fernet do cofre de segredos)")
+    if not os.environ.get("ESCUTA_CHAVES_ACESSO"):
+        problemas.append("ESCUTA_CHAVES_ACESSO ausente (chaves de desenvolvimento são proibidas em produção)")
+    elif any(k.endswith("-dev") for k in s.chaves_acesso):
+        problemas.append("ESCUTA_CHAVES_ACESSO contém chaves '*-dev'")
+    if s.confiar_proxy and not s.segredo_proxy:
+        problemas.append("ESCUTA_SEGREDO_PROXY ausente: sem ele, todo tráfego vindo da Netlify divide um único limite de tentativas")
+    if s.database_url in ("sqlite://", "sqlite:///:memory:"):
+        problemas.append("banco em memória em produção")
+    if problemas:
+        raise ConfiguracaoInsegura("Configuração insegura para produção: " + "; ".join(problemas))
 
 
 _settings: Settings | None = None

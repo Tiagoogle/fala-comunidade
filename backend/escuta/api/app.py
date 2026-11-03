@@ -7,7 +7,9 @@ Rotas públicas: consulta de status (protocolo + código) e privacidade.
 
 from __future__ import annotations
 
+import os
 from collections.abc import Iterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal
 
@@ -18,14 +20,64 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from .. import audit, conversation, indicators, integrations, knowledge, services
-from ..config import get_settings
+from ..config import get_settings, validar_producao
 from ..db import SessionLocal, ViolacaoImutabilidade
 from ..models import SessaoConversa
 
-FRONTEND_DIR = Path(__file__).resolve().parents[3] / "frontend"
+FRONTEND_DIR = Path(os.environ.get("ESCUTA_DIR_FRONTEND") or Path(__file__).resolve().parents[3] / "frontend")
 
-app = FastAPI(title="Escuta+ — API", version="0.1.0",
+@asynccontextmanager
+async def _ciclo_de_vida(_app: FastAPI):
+    # Recusa subir em produção com chave de cifra efêmera ou chaves de acesso de desenvolvimento.
+    validar_producao(get_settings())
+    yield
+
+
+app = FastAPI(title="Escuta+ — API", version="0.1.0", lifespan=_ciclo_de_vida,
               description="Facilitador de escuta comunitária com supervisão humana permanente. O agente não decide.")
+
+
+def _assinatura_netlify_valida(token: str | None, segredo: str) -> bool:
+    """Valida o JWT HS256 que a Netlify envia em ``x-nf-sign`` nos proxies com ``signed``."""
+    import base64
+    import hashlib
+    import hmac
+    import json
+    import time
+
+    if not token or token.count(".") != 2:
+        return False
+    cab, corpo, sig = token.split(".")
+    esperado = base64.urlsafe_b64encode(hmac.new(segredo.encode(), f"{cab}.{corpo}".encode(), hashlib.sha256).digest()).rstrip(b"=").decode()
+    if not hmac.compare_digest(esperado, sig):
+        return False
+    try:
+        dados = json.loads(base64.urlsafe_b64decode(corpo + "=" * (-len(corpo) % 4)))
+    except ValueError:
+        return False
+    return dados.get("iss") == "netlify" and (dados.get("exp") is None or dados["exp"] > time.time())
+
+
+def ip_cliente(request: Request) -> str:
+    """IP real do cliente, para o limite de tentativas da consulta de status.
+
+    Cadeia em produção: cliente → Netlify → Fly → app.
+    - Sem ``confiar_proxy``: só o IP da conexão TCP (cabeçalhos seriam forjáveis).
+    - Com ``confiar_proxy``: se a requisição traz assinatura válida da Netlify
+      (``x-nf-sign``, segredo em ``ESCUTA_SEGREDO_PROXY``), vale o
+      ``x-nf-client-connection-ip``; senão vale ``Fly-Client-IP``, que o próprio Fly
+      define com o IP que se conectou a ele (não é forjável pelo cliente).
+    """
+    s = get_settings()
+    if s.confiar_proxy:
+        if s.segredo_proxy and _assinatura_netlify_valida(request.headers.get("x-nf-sign"), s.segredo_proxy):
+            ip = request.headers.get("x-nf-client-connection-ip")
+            if ip:
+                return ip.strip()
+        fly = request.headers.get("fly-client-ip")
+        if fly:
+            return fly.strip()
+    return request.client.host if request.client else "desconhecido"
 
 
 def get_db() -> Iterator[Session]:
@@ -174,7 +226,7 @@ def privacidade():
 
 @app.get("/status/{protocolo}")
 def status_publico(protocolo: str, codigo: str, request: Request, db: Session = Depends(get_db)):
-    origem = f"ip:{request.client.host if request.client else 'desconhecido'}"
+    origem = f"ip:{ip_cliente(request)}"
     try:
         r = services.consultar_status(db, protocolo, codigo, origem=origem)
     except services.AcessoNegado as e:

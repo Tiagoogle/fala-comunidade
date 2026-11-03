@@ -1,0 +1,8 @@
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+backend/*.db
+backend/anexos
+backend/.chave_dev.key
+backend/tests
+.git
