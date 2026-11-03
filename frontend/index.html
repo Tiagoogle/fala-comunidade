@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0f4c5c">
+  <title>Escuta+ · Agente de campo</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icone.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="pular" href="#conteudo">Pular para o conteúdo</a>
+  <header class="topo">
+    <div class="marca">
+      <span class="logo" aria-hidden="true">E+</span>
+      <div>
+        <h1>Escuta+</h1>
+        <p class="sub">Assistente de escuta para o agente de campo · a IA sugere, pessoas decidem</p>
+      </div>
+    </div>
+    <div class="estado">
+      <span id="conexao" class="pilula" role="status" aria-live="polite">verificando conexão…</span>
+      <span id="pendentes" class="pilula" hidden></span>
+      <button id="fonte" class="botao-sec" type="button" aria-pressed="false" title="Aumentar o tamanho do texto">A+</button>
+    </div>
+  </header>
+
+  <nav class="abas" aria-label="Seções">
+    <button role="tab" aria-selected="true" data-aba="conversa">Conversa</button>
+    <button role="tab" aria-selected="false" data-aba="registro">Registro offline</button>
+    <button role="tab" aria-selected="false" data-aba="fila">Fila humana</button>
+    <button role="tab" aria-selected="false" data-aba="status">Consultar protocolo</button>
+    <button role="tab" aria-selected="false" data-aba="painel">Painel</button>
+    <button role="tab" aria-selected="false" data-aba="gov">Governança</button>
+    <button role="tab" aria-selected="false" data-aba="config">Acesso</button>
+  </nav>
+
+  <div id="alerta-emergencia" class="emergencia" role="alert" hidden>
+    <strong>Possível emergência.</strong> Oriente a ligar agora:
+    <a href="tel:192">SAMU 192</a> · <a href="tel:193">Bombeiros 193</a> · <a href="tel:190">Polícia 190</a> ·
+    <a href="tel:199">Defesa Civil 199</a> · <a href="tel:180">Mulher 180</a> · <a href="tel:100">Direitos Humanos 100</a>.
+    O assistente não envia resgate. O registro sai com marcador de emergência e aciona a fila prioritária.
+  </div>
+
+  <main id="conteudo">
+    <!-- CONVERSA -->
+    <section id="aba-conversa" class="aba" aria-labelledby="t-conversa">
+      <h2 id="t-conversa">Conversa assistida</h2>
+      <p class="ajuda">Digite o que a pessoa disser, com as palavras dela. A pessoa pode pedir atendimento humano a qualquer momento.</p>
+      <div id="chat" class="chat" role="log" aria-live="polite" aria-relevant="additions"></div>
+      <div id="opcoes" class="opcoes" aria-label="Respostas rápidas"></div>
+      <form id="form-chat" class="linha-envio" autocomplete="off">
+        <label for="entrada" class="sr">Mensagem</label>
+        <textarea id="entrada" rows="2" placeholder="Escreva aqui…" required></textarea>
+        <button type="submit" class="botao">Enviar</button>
+      </form>
+      <div class="acoes-chat">
+        <button id="nova-conversa" type="button" class="botao-sec">Nova conversa</button>
+        <button id="pedir-pessoa" type="button" class="botao-sec">Pessoa pediu atendimento humano</button>
+        <label class="botao-sec arquivo">Anexar foto/arquivo<input id="anexo-chat" type="file" accept="image/*,audio/*,video/*,application/pdf" hidden></label>
+      </div>
+    </section>
+
+    <!-- REGISTRO OFFLINE -->
+    <section id="aba-registro" class="aba" hidden aria-labelledby="t-registro">
+      <h2 id="t-registro">Registro assistido (funciona sem internet)</h2>
+      <p class="ajuda">O registro fica guardado cifrado neste aparelho e é enviado quando a rede voltar — sem duplicar. O código de consulta é gerado aqui e entregue à pessoa na hora.</p>
+      <form id="form-registro" class="grade">
+        <label>Relato (palavras da pessoa) <span class="obr">obrigatório se não houver áudio</span>
+          <textarea id="r-relato" rows="5"></textarea>
+        </label>
+        <fieldset>
+          <legend>Áudio (cidadão de primeira classe)</legend>
+          <button id="gravar" type="button" class="botao-sec">● Gravar áudio</button>
+          <span id="gravando" role="status"></span>
+          <audio id="previa" controls hidden></audio>
+          <label>Transcrição feita pelo agente (opcional)
+            <textarea id="r-transcricao" rows="3"></textarea>
+          </label>
+          <label class="check"><input id="r-transcricao-ok" type="checkbox"> Li a transcrição para a pessoa e ela confirmou</label>
+        </fieldset>
+        <label>Local aproximado (comunidade, rua, referência)
+          <input id="r-local" type="text" maxlength="200">
+        </label>
+        <label>Desde quando acontece
+          <input id="r-desde" type="text" maxlength="200">
+        </label>
+        <fieldset>
+          <legend>Identificação (a pessoa escolhe)</legend>
+          <label class="check"><input type="radio" name="modo" value="anonimo" checked> Sem identificação (recebe protocolo + código)</label>
+          <label class="check"><input type="radio" name="modo" value="sigiloso"> Sigilo (nome protegido)</label>
+          <label class="check"><input type="radio" name="modo" value="identificado"> Identificada</label>
+          <div id="campos-id" hidden>
+            <label>Nome <input id="r-nome" type="text" maxlength="120"></label>
+            <label>Contato para retorno <input id="r-contato" type="text" maxlength="120"></label>
+          </div>
+        </fieldset>
+        <label class="check"><input id="r-coletiva" type="checkbox"> Demanda coletiva (não presume representação de terceiros)</label>
+        <label class="check"><input id="r-pessoa" type="checkbox"> A pessoa quer falar com alguém da equipe</label>
+        <label>Necessidades de acessibilidade declaradas (opcional; nunca inferidas)
+          <input id="r-acess" type="text" placeholder="ex.: Libras, fonte ampliada, apoio de familiar">
+        </label>
+        <div class="consent">
+          <p id="texto-consent">Li para a pessoa: “Guardo o que você contou só para tratar esta manifestação e prestar contas. Não faço perfil pessoal e não compartilho sem autorização, exceto obrigação legal. Você pode pedir acesso, correção e explicação ao Encarregado de Proteção de Dados.”</p>
+          <label class="check"><input id="r-consent" type="checkbox" required> A pessoa concordou com o registro</label>
+          <label class="check"><input id="r-notif" type="checkbox"> A pessoa quer aviso por mensagem quando o status mudar</label>
+        </div>
+        <button type="submit" class="botao">Guardar registro</button>
+      </form>
+      <div id="recibo" class="recibo" role="status" aria-live="polite" hidden></div>
+      <h3>Registros neste aparelho</h3>
+      <ul id="lista-local" class="lista"></ul>
+      <button id="sincronizar" type="button" class="botao-sec">Sincronizar agora</button>
+    </section>
+
+    <!-- FILA -->
+    <section id="aba-fila" class="aba" hidden aria-labelledby="t-fila">
+      <h2 id="t-fila">Fila de atendimento humano</h2>
+      <p class="ajuda">Nenhum caso sem dono. Ordenada por prioridade. Rotas sigilosas só aparecem para revisores autorizados.</p>
+      <button id="atualizar-fila" type="button" class="botao-sec">Atualizar</button>
+      <ul id="lista-fila" class="lista"></ul>
+      <div id="caso" class="caso" hidden></div>
+    </section>
+
+    <!-- STATUS -->
+    <section id="aba-status" class="aba" hidden aria-labelledby="t-status">
+      <h2 id="t-status">Consultar protocolo</h2>
+      <form id="form-status" class="grade estreita">
+        <label>Protocolo <input id="s-protocolo" placeholder="2026-MG-000123" required></label>
+        <label>Código de consulta <input id="s-codigo" inputmode="numeric" placeholder="123-456" required></label>
+        <button class="botao" type="submit">Consultar</button>
+      </form>
+      <div id="saida-status" class="recibo" role="status" aria-live="polite" hidden></div>
+    </section>
+
+    <!-- PAINEL -->
+    <section id="aba-painel" class="aba" hidden aria-labelledby="t-painel">
+      <h2 id="t-painel">Indicadores agregados</h2>
+      <p class="ajuda">Sem dados pessoais, sem ranking de pessoas. Células com menos de N casos aparecem como “&lt;N”. O painel informa, não decide.</p>
+      <button id="carregar-painel" type="button" class="botao-sec">Carregar</button>
+      <div id="painel" class="painel"></div>
+    </section>
+
+    <!-- GOVERNANÇA -->
+    <section id="aba-gov" class="aba" hidden aria-labelledby="t-gov">
+      <h2 id="t-gov">Desligamento seguro e auditoria</h2>
+      <p class="ajuda">Somente o comitê de governança. Toda mudança exige motivo e entra na trilha de auditoria.</p>
+      <div id="chaves" class="chaves"></div>
+      <button id="verificar-trilha" type="button" class="botao-sec">Verificar integridade da trilha</button>
+      <div id="saida-gov" class="recibo" role="status" hidden></div>
+    </section>
+
+    <!-- ACESSO -->
+    <section id="aba-config" class="aba" hidden aria-labelledby="t-config">
+      <h2 id="t-config">Acesso</h2>
+      <form id="form-config" class="grade estreita">
+        <label>Chave de acesso <input id="c-chave" type="password" autocomplete="off" required></label>
+        <button class="botao" type="submit">Salvar</button>
+      </form>
+      <p class="ajuda">Ambiente de desenvolvimento: campo-dev, revisor-dev, sigilo-dev, gestor-dev, governanca-dev. Em produção: SSO corporativo.</p>
+    </section>
+  </main>
+
+  <footer class="rodape">
+    Escuta+ é um assistente digital: não decide sobre indenização, culpa ou obras, não negocia e não encerra casos. Atendimento humano sempre disponível.
+  </footer>
+  <script src="app.js" type="module"></script>
+</body>
+</html>
