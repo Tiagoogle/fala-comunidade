@@ -79,13 +79,18 @@ _CAMPOS_IMUTAVEIS_MANIFESTACAO = ("conteudo_original", "hash_original", "origina
 def _proteger_imutaveis(session: Session, flush_context, instances) -> None:  # noqa: ANN001
     from sqlalchemy import inspect
 
+    # Única exceção à imutabilidade: descarte seguro pela política de retenção (escuta.retention),
+    # que marca a sessão explicitamente e registra evento "descarte" na trilha.
+    descarte = session.info.get("descarte_autorizado", False)
     for obj in session.dirty:
-        if isinstance(obj, Manifestacao):
+        if isinstance(obj, Manifestacao) and not (descarte and obj.descartado_em is not None):
             estado = inspect(obj)
             for campo in _CAMPOS_IMUTAVEIS_MANIFESTACAO:
                 hist = estado.attrs[campo].history
                 if hist.deleted and hist.added and hist.deleted[0] != hist.added[0]:
                     raise ViolacaoImutabilidade(f"Campo imutável '{campo}' da manifestação não pode ser alterado; use adendo.")
+        if isinstance(obj, Adendo) and descarte and session.is_modified(obj):
+            continue  # adendos também podem conter dados pessoais: descartados junto com o caso
         if isinstance(obj, (EventoAuditoria, Adendo)) and session.is_modified(obj):
             raise ViolacaoImutabilidade(f"{type(obj).__name__} é append-only.")
     for obj in session.deleted:

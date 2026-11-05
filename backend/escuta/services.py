@@ -407,20 +407,32 @@ def confirmar_transcricao(db: Session, m: Manifestacao, texto_confirmado: str, a
 _TENTATIVAS: dict[str, list[float]] = {}
 
 
-def consultar_status(db: Session, numero: str, codigo: str, origem: str = "anon") -> dict | None:
+def autenticar_titular(db: Session, numero: str, codigo: str, origem: str = "anon") -> Manifestacao | None:
+    """Protocolo + código de consulta: a única credencial do autor (vale também para anônimos).
+
+    Limite de tentativas por origem e resposta idêntica para "não existe" e "código errado",
+    para não confirmar a existência de protocolos (enumeração).
+    """
     import time
 
     janela = [t for t in _TENTATIVAS.get(origem, []) if time.time() - t < 600]
     if len(janela) >= 10:
-        audit.registrar(db, "tentativa_negada", "consulta_status", origem, {"motivo": "limite de tentativas"})
+        audit.registrar(db, "tentativa_negada", "titular", origem, {"motivo": "limite de tentativas"})
         raise AcessoNegado("muitas tentativas; tente novamente mais tarde ou fale com a equipe")
     janela.append(time.time())
     _TENTATIVAS[origem] = janela
 
     m = db.execute(select(Manifestacao).where(Manifestacao.protocolo == (numero or "").strip().upper())).scalar_one_or_none()
     if m is None or not protocol.verificar_codigo(codigo, m.codigo_consulta_hash):
-        audit.registrar(db, "tentativa_negada", "consulta_status", origem, {"motivo": "protocolo/código não conferem"})
-        return None  # resposta idêntica para inexistente e código errado: não confirma existência
+        audit.registrar(db, "tentativa_negada", "titular", origem, {"motivo": "protocolo/código não conferem"})
+        return None
+    return m
+
+
+def consultar_status(db: Session, numero: str, codigo: str, origem: str = "anon") -> dict | None:
+    m = autenticar_titular(db, numero, codigo, origem)
+    if m is None:
+        return None
     audit.registrar(db, "consulta_status", f"manifestacao:{m.id_manifestacao}", origem, {})
     s = get_settings()
     enc = next((e for e in m.encaminhamentos if e.principal), None)
@@ -596,12 +608,15 @@ def verificar_atrasos(db: Session) -> int:
 # --------------------------------------------------------------------------- fila humana
 
 def listar_fila(db: Session, ator: Ator, abertos: bool = True) -> list[ItemFilaHumana]:
-    if ator.papel not in PAPEIS_REVISAO + ("agente_campo",):
+    if ator.papel not in PAPEIS_REVISAO + ("agente_campo", "dpo"):
         raise AcessoNegado("sem acesso à fila")
     q = select(ItemFilaHumana)
     if abertos:
         q = q.where(ItemFilaHumana.resolvido_em.is_(None))
     itens = list(db.execute(q).scalars())
+    if ator.papel == "dpo":  # o DPO vê só pedidos de titulares — de qualquer rota, sem o conteúdo do caso
+        return sorted([i for i in itens if i.motivo == "direito_titular"], key=lambda i: i.criado_em)
+    itens = [i for i in itens if i.motivo != "direito_titular"]
     if ator.papel != "revisor_sigiloso":
         itens = [i for i in itens if i.rota == "comum"]
     if ator.papel == "agente_campo":
@@ -615,9 +630,11 @@ def assumir_item(db: Session, id_item: str, ator: Ator) -> ItemFilaHumana:
     item = db.get(ItemFilaHumana, id_item)
     if item is None:
         raise ErroNegocio("item não encontrado")
-    if item.rota == "sigilosa" and ator.papel != "revisor_sigiloso":
+    if (item.motivo == "direito_titular") != (ator.papel == "dpo"):
+        raise AcessoNegado("pedidos de titulares são tratados pelo Encarregado de Dados (DPO)")
+    if item.rota == "sigilosa" and ator.papel not in ("revisor_sigiloso", "dpo"):
         raise AcessoNegado("rota sigilosa")
-    if ator.papel not in PAPEIS_REVISAO + ("agente_campo",):
+    if ator.papel not in PAPEIS_REVISAO + ("agente_campo", "dpo"):
         raise AcessoNegado("sem acesso à fila")
     item.responsavel, item.assumido_em = ator.rotulo, agora()
     audit.registrar(db, "escalonamento", f"fila:{id_item}", ator.rotulo, {"acao": "assumido", "motivo": item.motivo})

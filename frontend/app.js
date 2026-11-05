@@ -250,8 +250,13 @@ async function carregarFila() {
     const itens = await api("/fila");
     ul.innerHTML = itens.map((i) => `<li><span><span class="prio ${esc(i.prioridade)}">${esc(i.prioridade)}</span> ${esc(i.motivo.replace("_", " "))} · ${esc(i.contexto)}
       ${i.rota === "sigilosa" ? " · <strong>sigilosa</strong>" : ""}</span>
-      <span>${i.responsavel ? "com " + esc(i.responsavel) : `<button class="botao-sec" data-assumir="${i.id}">Assumir</button>`}
-      ${i.id_manifestacao ? `<button class="botao-sec" data-caso="${i.id_manifestacao}">Abrir caso</button>` : ""}</span></li>`).join("") || "<li>Fila vazia.</li>";
+      <span>${i.responsavel ? `com ${esc(i.responsavel)} <button class="botao-sec" data-resolver="${i.id}">Resolver</button>` : `<button class="botao-sec" data-assumir="${i.id}">Assumir</button>`}
+      ${i.id_manifestacao && i.motivo !== "direito_titular" ? `<button class="botao-sec" data-caso="${i.id_manifestacao}">Abrir caso</button>` : ""}</span></li>`).join("") || "<li>Fila vazia.</li>";
+    ul.querySelectorAll("[data-resolver]").forEach((b) => b.onclick = async () => {
+      const resolucao = prompt("O que foi feito? (fica registrado na auditoria)"); if (!resolucao) return;
+      try { await api(`/fila/${b.dataset.resolver}/resolver`, { method: "POST", body: JSON.stringify({ resolucao }) }); } catch (e) { alert(e.message); }
+      carregarFila();
+    });
     ul.querySelectorAll("[data-assumir]").forEach((b) => b.onclick = async () => { await api(`/fila/${b.dataset.assumir}/assumir`, { method: "POST" }); carregarFila(); });
     ul.querySelectorAll("[data-caso]").forEach((b) => b.onclick = () => abrirCaso(b.dataset.caso));
   } catch (e) { ul.innerHTML = `<li>${esc(e.message)}</li>`; }
@@ -299,7 +304,38 @@ $("#form-status").addEventListener("submit", async (e) => {
     const j = await r.json();
     if (!r.ok) { out.textContent = j.detail === "protocolo e código não conferem" ? "Não encontrei um registro com esse protocolo e código. Confira os números — uma pessoa da equipe também pode ajudar." : j.detail; return; }
     out.innerHTML = `<p>${esc(j.mensagem)}</p><p class="ia">${esc(j.aviso_prazo)}</p><ol>${j.historico.map((h) => `<li>${new Date(h.quando).toLocaleDateString("pt-BR")} — ${esc(h.status)}${h.mensagem ? ": " + esc(h.mensagem) : ""}</li>`).join("")}</ol>`;
+    $("#direitos").hidden = false;
   } catch { out.textContent = "Sem conexão. Tente de novo quando a rede voltar."; }
+});
+
+// ---------------------------------------------------------------- direitos do titular (LGPD art. 18)
+const credencial = () => ({ protocolo: $("#s-protocolo").value.trim(), codigo: $("#s-codigo").value.replace(/\D/g, "") });
+async function titular(rota, extra = {}) {
+  const r = await fetch(`${API}/titular/${rota}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...credencial(), ...extra }) });
+  const j = await r.json();
+  if (!r.ok) throw new Error(typeof j.detail === "string" ? j.detail : "Não foi possível concluir. Confira protocolo e código.");
+  return j;
+}
+function avisoDireitos(t) { const o = $("#saida-direitos"); o.hidden = false; o.textContent = t; }
+$("#d-baixar").addEventListener("click", async () => {
+  try {
+    const dados = await titular("acesso");
+    const url = URL.createObjectURL(new Blob([JSON.stringify(dados, null, 2)], { type: "application/json" }));
+    const a = document.createElement("a"); a.href = url; a.download = `meus-dados-${dados.protocolo}.json`; a.click(); URL.revokeObjectURL(url);
+    avisoDireitos("Arquivo com todos os seus dados deste protocolo baixado.");
+  } catch (e) { avisoDireitos(e.message); }
+});
+$("#d-corrigir").addEventListener("click", async () => {
+  const texto = prompt("O que você quer corrigir ou completar? O texto original continua guardado."); if (!texto) return;
+  try { avisoDireitos((await titular("correcao", { texto })).mensagem); } catch (e) { avisoDireitos(e.message); }
+});
+$("#d-avisos").addEventListener("click", async () => {
+  try { avisoDireitos((await titular("consentimento/revogar", { finalidade: "notificacoes" })).mensagem); } catch (e) { avisoDireitos(e.message); }
+});
+$("#form-pedido").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  try { avisoDireitos((await titular("pedido", { tipo: $("#d-tipo").value, detalhe: $("#d-detalhe").value || null })).mensagem); $("#d-detalhe").value = ""; }
+  catch (er) { avisoDireitos(er.message); }
 });
 
 // ---------------------------------------------------------------- painel

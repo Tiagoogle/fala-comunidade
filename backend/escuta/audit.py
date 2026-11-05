@@ -24,6 +24,7 @@ TIPOS_EVENTO = {
     "consentimento", "emergencia_detectada", "emergencia_notificada", "escalonamento", "triagem_sugerida",
     "avaliacao_humana", "adendo", "anexo_recebido", "anexo_acessado", "status", "consulta_status",
     "bloqueio_saida", "kill_switch", "fila", "llm_falha", "resposta_kb", "sessao",
+    "rotacao_chave", "descarte", "direito_titular", "retencao",
 }
 
 

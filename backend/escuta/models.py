@@ -13,7 +13,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import JSON, false, Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -37,6 +37,8 @@ class Pessoa(Base):
     contato_cifrado: Mapped[str | None] = mapped_column(Text, nullable=True)
     perfil_acessibilidade: Mapped[list] = mapped_column(JSON, default=list)
     criada_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=agora)
+    # Retenção/titular: nome e contato apagados (o pseudônimo continua ligando o caso)
+    dados_removidos_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class SequenciaProtocolo(Base):
@@ -86,6 +88,10 @@ class Manifestacao(Base):
     revisao_obrigatoria: Mapped[bool] = mapped_column(Boolean, default=True)
     prioridade_validada: Mapped[str | None] = mapped_column(String(2), nullable=True)
 
+    # Retenção (§9.4/§11.4): suspensão por obrigação de guarda e marca de descarte seguro
+    retencao_suspensa: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    descartado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     status_atual: Mapped[str] = mapped_column(String(20), default="registrada")
     modo_identificacao: Mapped[str] = mapped_column(String(20))  # identificado | sigiloso | anonimo
     id_pessoa: Mapped[str | None] = mapped_column(ForeignKey("pessoa.id_pessoa"), nullable=True)
@@ -125,6 +131,7 @@ class Anexo(Base):
     armazenamento: Mapped[str] = mapped_column(String(300))  # caminho do arquivo cifrado
     descricao_autor: Mapped[str | None] = mapped_column(Text, nullable=True)
     sensivel: Mapped[bool] = mapped_column(Boolean, default=False)
+    descartado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     recebido_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=agora)
     manifestacao: Mapped[Manifestacao] = relationship(back_populates="anexos")
 
@@ -138,6 +145,7 @@ class Consentimento(Base):
     versao_texto: Mapped[str] = mapped_column(String(40))
     aceite_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     revogacao_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    motivo_revogacao: Mapped[str | None] = mapped_column(Text, nullable=True)
     meio: Mapped[str] = mapped_column(String(20))  # conversa | presencial | web
 
 
@@ -193,7 +201,7 @@ class ItemFilaHumana(Base):
     id_item: Mapped[str] = mapped_column(String(36), primary_key=True, default=novo_id)
     id_manifestacao: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
     id_sessao: Mapped[str | None] = mapped_column(String(36), nullable=True)
-    motivo: Mapped[str] = mapped_column(String(30))  # emergencia | pedido_pessoa | revisao_triagem | sensivel | retaliacao | contestacao | atraso | sistema_desligado
+    motivo: Mapped[str] = mapped_column(String(30))  # emergencia | pedido_pessoa | revisao_triagem | sensivel | retaliacao | contestacao | atraso | sistema_desligado | direito_titular
     prioridade: Mapped[str] = mapped_column(String(2))
     rota: Mapped[str] = mapped_column(String(10), default="comum")
     resumo_contexto: Mapped[str] = mapped_column(Text)

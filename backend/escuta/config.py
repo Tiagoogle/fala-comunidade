@@ -76,6 +76,9 @@ class Settings:
     llm_esforco: str = field(default_factory=lambda: _env("ESCUTA_LLM_ESFORCO", "low"))
     llm_timeout_s: float = field(default_factory=lambda: float(_env("ESCUTA_LLM_TIMEOUT", "30")))
 
+    # Retenção (§9.4): dias após o ENCERRAMENTO, por categoria. Sem valor = não descarta (pendente J2).
+    # Ex.: ESCUTA_RETENCAO='{"contato": 180, "turnos_conversa": 90, "conteudo_e_anexos": 1825}'
+    retencao: dict[str, int] = field(default_factory=lambda: json.loads(os.environ.get("ESCUTA_RETENCAO") or "{}"))
     versao_prompt: str = "v1.0"
     versao_texto_consentimento: str = "consentimento-v1.0"
     janelas: dict[str, JanelaPrioridade] = field(default_factory=lambda: dict(JANELAS_PADRAO))
@@ -102,6 +105,7 @@ def _carregar_chaves() -> dict[str, dict[str, str]]:
         "sigilo-dev": {"papel": "revisor_sigiloso", "id": "ouvidoria-01", "territorio": "*"},
         "gestor-dev": {"papel": "gestor", "id": "gestor-01", "territorio": "*"},
         "governanca-dev": {"papel": "governanca", "id": "comite-01", "territorio": "*"},
+        "dpo-dev": {"papel": "dpo", "id": "dpo-01", "territorio": "*"},
     }
 
 
@@ -116,6 +120,14 @@ def validar_producao(s: "Settings") -> None:
     problemas = []
     if not s.chave_cifra:
         problemas.append("ESCUTA_CHAVE_CIFRA ausente (chave Fernet do cofre de segredos)")
+    else:
+        from cryptography.fernet import Fernet
+
+        for i, k in enumerate(k for k in s.chave_cifra.split(",") if k.strip()):
+            try:
+                Fernet(k.strip().encode())
+            except ValueError:
+                problemas.append(f"ESCUTA_CHAVE_CIFRA: a chave na posição {i + 1} não é uma chave Fernet válida")
     if not os.environ.get("ESCUTA_CHAVES_ACESSO"):
         problemas.append("ESCUTA_CHAVES_ACESSO ausente (chaves de desenvolvimento são proibidas em produção)")
     elif any(k.endswith("-dev") for k in s.chaves_acesso):

@@ -19,7 +19,7 @@ verificação com pessoas reais antes da Fase 4 e **não** está coberto aqui.
 | 12 | Registra eventos de auditoria | Código | `test_c12_*` — cadeia de hash detecta adulteração |
 | 13 | Permite revisão humana | Código | `test_c13_*` — justificativa obrigatória; quem registrou não valida |
 | 14 | Evita decisões só por IA | Código | `test_c14_*` — encaminhamento bloqueado sem validação; modelo não rebaixa prioridade |
-| 15 | Protege dados pessoais | Código | `test_c15_*` — anonimato estrutural, contato cifrado com acesso motivado, recusa descarta relato |
+| 15 | Protege dados pessoais | Código | `test_c15_*`: anonimato estrutural, contato cifrado com acesso motivado, recusa descarta relato. `test_lgpd.py`: rotação de chave, retenção com guarda legal, direitos do titular (art. 18) |
 | 16 | Informação compreensível | **Campo** | Textos seguem a spec; validação com público de baixa alfabetização é da Fase 3. |
 | 17 | Testes de viés e segurança | Código (inicial) | `test_c17_*`, `test_adversarial.py`. A bateria precisa de amostras reais de fala regional. |
 | 18 | Desligamento seguro | Código | `test_c18_*` — total, LLM, triagem, base; só governança, com motivo auditado |

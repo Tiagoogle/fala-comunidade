@@ -7,6 +7,7 @@ Rotas públicas: consulta de status (protocolo + código) e privacidade.
 
 from __future__ import annotations
 
+import logging
 import os
 from collections.abc import Iterator
 from contextlib import asynccontextmanager
@@ -19,7 +20,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from .. import audit, conversation, indicators, integrations, knowledge, services
+from .. import audit, conversation, crypto, indicators, integrations, knowledge, retention, services, titular
 from ..config import get_settings, validar_producao
 from ..db import SessionLocal, ViolacaoImutabilidade
 from ..models import SessaoConversa
@@ -110,6 +111,13 @@ async def _erro_negocio(_req: Request, exc: services.ErroNegocio):
 async def _acesso_negado(_req: Request, exc: services.AcessoNegado):
     # Tentativa negada é registrada em sessão própria (a do request sofre rollback).
     return JSONResponse(status_code=403, content={"detail": str(exc)})
+
+
+@app.exception_handler(crypto.ChaveIndisponivel)
+async def _chave_indisponivel(_req: Request, exc: crypto.ChaveIndisponivel):
+    # Erro operacional (configuração de chaves), não do usuário: 503 com causa explícita para a operação.
+    logging.getLogger("escuta").error("ChaveIndisponivel: %s", exc)
+    return JSONResponse(status_code=503, content={"detail": "dado cifrado com chave fora de ESCUTA_CHAVE_CIFRA (rotação incompleta?) — acione a operação"})
 
 
 @app.exception_handler(ViolacaoImutabilidade)
@@ -236,6 +244,86 @@ def status_publico(protocolo: str, codigo: str, request: Request, db: Session = 
         db.commit()  # preserva o registro da tentativa negada
         raise HTTPException(404, "protocolo e código não conferem")
     return r
+
+
+# --------------------------------------------------------------------------- titular (LGPD art. 18)
+
+class CredencialTitularIn(BaseModel):
+    protocolo: str = Field(max_length=32)
+    codigo: str = Field(max_length=12)
+
+
+class CorrecaoTitularIn(CredencialTitularIn):
+    texto: str = Field(min_length=1, max_length=8000)
+
+
+class RevogacaoIn(CredencialTitularIn):
+    finalidade: Literal["notificacoes", "tratamento_manifestacao"]
+    motivo: str | None = Field(default=None, max_length=500)
+
+
+class PedidoTitularIn(CredencialTitularIn):
+    tipo: Literal["eliminacao", "anonimizacao", "revisao_humana", "explicacao", "portabilidade", "outro"]
+    detalhe: str | None = Field(default=None, max_length=2000)
+
+
+def _titular(db: Session, body: CredencialTitularIn, request: Request):
+    origem = f"ip:{ip_cliente(request)}"
+    try:
+        m = services.autenticar_titular(db, body.protocolo, body.codigo, origem)
+    except services.AcessoNegado as e:
+        db.commit()
+        raise HTTPException(429, str(e)) from e
+    if m is None:
+        db.commit()  # preserva o registro da tentativa negada
+        raise HTTPException(404, "protocolo e código não conferem")
+    return m, origem
+
+
+@app.post("/titular/acesso")
+def titular_acesso(body: CredencialTitularIn, request: Request, db: Session = Depends(get_db)):
+    m, origem = _titular(db, body, request)
+    return JSONResponse(titular.acesso(db, m, origem), headers={"Cache-Control": "no-store"})
+
+
+@app.post("/titular/correcao")
+def titular_correcao(body: CorrecaoTitularIn, request: Request, db: Session = Depends(get_db)):
+    m, origem = _titular(db, body, request)
+    return titular.corrigir(db, m, body.texto, origem)
+
+
+@app.post("/titular/consentimento/revogar")
+def titular_revogar(body: RevogacaoIn, request: Request, db: Session = Depends(get_db)):
+    m, origem = _titular(db, body, request)
+    return titular.revogar(db, m, body.finalidade, origem, body.motivo)
+
+
+@app.post("/titular/pedido")
+def titular_pedido(body: PedidoTitularIn, request: Request, db: Session = Depends(get_db)):
+    m, origem = _titular(db, body, request)
+    return titular.pedir(db, m, body.tipo, body.detalhe, origem)
+
+
+class DpoRetencaoIn(BaseModel):
+    protocolo: str
+    suspensa: bool
+    justificativa: str = Field(min_length=3)
+
+
+class DpoAnonimizarIn(BaseModel):
+    protocolo: str
+    justificativa: str = Field(min_length=3)
+
+
+@app.post("/dpo/retencao")
+def dpo_retencao(body: DpoRetencaoIn, db: Session = Depends(get_db), ator: services.Ator = Depends(ator_atual)):
+    m = titular.dpo_suspender_retencao(db, body.protocolo, body.suspensa, body.justificativa, ator)
+    return {"protocolo": m.protocolo, "retencao_suspensa": m.retencao_suspensa}
+
+
+@app.post("/dpo/anonimizar-contato")
+def dpo_anonimizar(body: DpoAnonimizarIn, db: Session = Depends(get_db), ator: services.Ator = Depends(ator_atual)):
+    return {"contato_removido": titular.dpo_anonimizar_contato(db, body.protocolo, body.justificativa, ator)}
 
 
 # --------------------------------------------------------------------------- conversa
@@ -441,7 +529,8 @@ def rotinas(db: Session = Depends(get_db), ator: services.Ator = Depends(ator_at
     """Rotinas periódicas (agendar via cron): atrasos e outbox de integrações."""
     if ator.papel != "governanca":
         raise HTTPException(403, "restrito")
-    return {"atrasos_sinalizados": services.verificar_atrasos(db), "integracoes": integrations.processar_pendentes(db)}
+    return {"atrasos_sinalizados": services.verificar_atrasos(db), "integracoes": integrations.processar_pendentes(db),
+            "retencao": retention.aplicar_retencao(db, ator=ator.rotulo)}
 
 
 # --------------------------------------------------------------------------- PWA

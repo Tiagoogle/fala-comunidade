@@ -23,6 +23,9 @@ FastAPI (backend/escuta/api)
   ├─ knowledge.py      só conteúdo aprovado, com fonte e data; sem conteúdo → "não tenho a informação"
   ├─ services.py       UC-01…UC-12, fila humana, revisão, encaminhamento, anexos cifrados
   ├─ audit.py          append-only com cadeia de hash (adulteração detectável)
+  ├─ retention.py      retenção e descarte seguro por política, com suspensão por obrigação de guarda
+  ├─ titular.py        direitos do titular (LGPD art. 18) via protocolo + código; pedidos vão ao DPO
+  ├─ admin.py          CLI: rotação de chave de cifra, retenção
   └─ indicators.py     agregados com supressão de células < N, sem ranking de pessoas
 SQLite (dev/piloto) → Postgres via ESCUTA_DATABASE_URL
 ```
@@ -32,9 +35,9 @@ SQLite (dev/piloto) → Postgres via ESCUTA_DATABASE_URL
 ```bash
 cd backend
 pip install -e ".[dev]"
-python -m pytest              # 101 testes: critérios de aceite 1–19, diálogos D-01…D-13, adversariais
+python -m pytest              # 118 testes: critérios de aceite 1–19, diálogos D-01…D-13, adversariais
 uvicorn escuta.api.app:app --port 8000
-# abrir http://localhost:8000/app/  — chaves de dev: campo-dev, revisor-dev, sigilo-dev, gestor-dev, governanca-dev
+# abrir http://localhost:8000/app/  — chaves de dev: campo-dev, revisor-dev, sigilo-dev, gestor-dev, governanca-dev, dpo-dev
 ```
 
 Variáveis principais:
@@ -45,7 +48,8 @@ Variáveis principais:
 | `ESCUTA_LLM` | `auto` | `auto` \| `claude` \| `deterministico` |
 | `ESCUTA_LLM_MODELO` | `claude-opus-5-5` | Esforço `low` por padrão (`ESCUTA_LLM_ESFORCO`). |
 | `ESCUTA_DATABASE_URL` | `sqlite:///backend/escuta.db` | Postgres: `postgresql+psycopg://…` |
-| `ESCUTA_CHAVE_CIFRA` | chave local de dev | **Obrigatória em produção** (KMS). Cifra contatos, anexos e turnos de conversa. |
+| `ESCUTA_CHAVE_CIFRA` | chave local de dev | **Obrigatória em produção** (KMS). Cifra contatos, anexos e turnos de conversa. Lista `nova,antiga` para rotação sem parada (`python -m escuta.admin rotacionar-chave`). |
+| `ESCUTA_RETENCAO` | — (nada é descartado) | JSON com dias após o encerramento: `contato`, `turnos_conversa`, `conteudo_e_anexos`. Prazos definidos por jurídico e DPO. |
 | `ESCUTA_CHAVES_ACESSO` | chaves de dev | JSON `{chave: {papel, id, territorio}}`. Substituir por SSO. |
 | `ESCUTA_MINIMO_N` | `5` | Mínimo por célula nos indicadores. |
 | `ESCUTA_AMBIENTE` | `desenvolvimento` | `producao` exige segredos explícitos e usa só Alembic para o schema. |

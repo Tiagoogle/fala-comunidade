@@ -74,11 +74,64 @@ configuração. No painel do Cloudflare → Workers & Pages → cada projeto →
 |---|---|
 | Backup | `fly volumes snapshots list escuta_dados` (snapshots diários automáticos). Antes de migrações: `fly volumes snapshots create <id>`. |
 | Logs | `fly logs -a escuta-mais` |
-| Rotinas (atrasos, outbox) | Agendar `POST /admin/rotinas` com chave de governança (ex.: GitHub Actions `schedule` a cada 30 min). |
+| Rotinas (atrasos, outbox, retenção) | Workflow `.github/workflows/rotinas.yml` a cada 30 min. Ativar com a variável de repositório `ROTINAS_ATIVAS=true` e os secrets `ESCUTA_URL` e `ESCUTA_CHAVE_ROTINAS` (papel `governanca`). |
 | Kill switch | Aba Governança do app, ou `POST /api/admin/chaves`. |
 | Migração de schema | Nova revisão: `cd backend && alembic revision --autogenerate -m "..."`, revisar o arquivo e commitar. O container aplica no boot. |
 | Escalar para Postgres | Criar Postgres (Fly Postgres em `gru` ou equivalente no Brasil), `pip install ".[postgres]"`, `fly secrets set ESCUTA_DATABASE_URL=postgresql+psycopg://...`, migrar dados e só então permitir mais de uma máquina. Anexos ainda exigem volume ou object storage. |
-| Rotação da chave de cifra | **Ainda não automatizada.** Exige re-cifrar `pessoa`, `turno_conversa` e os anexos. Planejar antes do piloto. |
+| Rotação da chave de cifra | Ver "Rotação da chave" abaixo. |
+| Retenção | Ver "Retenção e descarte" abaixo. |
+
+## Rotação da chave de cifra (sem parar o serviço)
+
+Faça a rotação periodicamente (ex.: anual) e **imediatamente** se a chave vazar ou se alguém com acesso a ela sair.
+
+```bash
+NOVA=$(python3 -c 'from cryptography.fernet import Fernet;print(Fernet.generate_key().decode())')
+# 1. nova chave NA FRENTE, antiga atrás: novos dados já saem com a nova; antigos continuam legíveis
+fly secrets set -a escuta-mais ESCUTA_CHAVE_CIFRA="$NOVA,$ANTIGA"
+# 2. re-cifra contatos, turnos de conversa e anexos (idempotente; confere hash de cada anexo)
+fly ssh console -a escuta-mais -C "python -m escuta.admin rotacionar-chave"
+# 3. só depois de o passo 2 terminar sem erro: remove a antiga
+fly secrets set -a escuta-mais ESCUTA_CHAVE_CIFRA="$NOVA"
+```
+
+Guarde a nova chave no cofre **antes** do passo 1. Se você remover a antiga antes de rotacionar, os
+dados antigos ficam ilegíveis: a API responde 503 ("rotação incompleta") e o comando de rotação recusa
+rodar sem sobrescrever nada. Recoloque a antiga na lista e repita. A rotação gera o evento de auditoria
+`rotacao_chave` com as contagens.
+
+## Retenção e descarte
+
+Os prazos são **decisão do jurídico e do DPO** (pergunta J2). Sem eles, nada é descartado e a rotina só
+informa "pendente de definição". Exemplo de configuração, com **valores apenas ilustrativos**:
+
+```bash
+fly secrets set -a escuta-mais ESCUTA_RETENCAO='{"contato": 180, "turnos_conversa": 90, "conteudo_e_anexos": 1825}'
+```
+
+- Os prazos contam a partir do **encerramento** registrado por pessoa. Casos abertos nunca são tocados.
+- `contato`: apaga nome e contato. O caso continua íntegro.
+- `turnos_conversa`: o texto das conversas vira um marcador. O relato oficial está na manifestação.
+- `conteudo_e_anexos`: relato, adendos, resumo e transcrição viram um marcador e os arquivos de anexo
+  são apagados. O `hash_original` é mantido como prova de integridade. Eventos de auditoria e
+  indicadores agregados permanecem.
+- **Obrigação de guarda** (ação judicial, fiscalização): o DPO suspende por protocolo com
+  `POST /api/dpo/retencao {"protocolo": "...", "suspensa": true, "justificativa": "..."}`.
+- Execução manual: `fly ssh console -a escuta-mais -C "python -m escuta.admin retencao"`.
+
+## Direitos do titular (LGPD art. 18)
+
+O titular usa **protocolo + código de consulta**, que vale também para quem registrou sem
+identificação. Na aba "Consultar protocolo" do app, ou pelas rotas:
+- `/titular/acesso`: cópia completa dos dados, com explicação de como a classificação foi feita (art. 20);
+- `/titular/correcao`: vira adendo, e o original é preservado;
+- `/titular/consentimento/revogar`: avisos ou tratamento. Revogar o tratamento apaga o contato na hora e
+  aciona o DPO;
+- `/titular/pedido`: eliminação, anonimização, revisão por pessoa, explicação. Vira item na fila do DPO
+  com prazo legal de 15 dias (art. 19, II).
+
+O papel `dpo` vê só esses pedidos, sem acesso ao conteúdo dos casos. Crie uma chave de acesso para o
+Encarregado com `{"papel": "dpo", ...}`.
 
 ## Limites conhecidos deste desenho
 

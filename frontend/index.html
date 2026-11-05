@@ -132,6 +132,30 @@
         <button class="botao" type="submit">Consultar</button>
       </form>
       <div id="saida-status" class="recibo" role="status" aria-live="polite" hidden></div>
+      <div id="direitos" class="direitos" hidden>
+        <h3>Seus dados e seus direitos</h3>
+        <p class="ajuda">Com o mesmo protocolo e código, a pessoa pode ver tudo o que foi guardado, corrigir, parar avisos ou fazer um pedido ao Encarregado de Proteção de Dados (LGPD).</p>
+        <div class="acoes-chat">
+          <button id="d-baixar" type="button" class="botao-sec">Baixar meus dados</button>
+          <button id="d-corrigir" type="button" class="botao-sec">Corrigir ou completar</button>
+          <button id="d-avisos" type="button" class="botao-sec">Parar avisos</button>
+        </div>
+        <form id="form-pedido" class="grade estreita">
+          <label>Pedido ao Encarregado de Dados
+            <select id="d-tipo">
+              <option value="revisao_humana">Revisão por uma pessoa</option>
+              <option value="explicacao">Explicação de como meus dados são usados</option>
+              <option value="anonimizacao">Tirar meu nome e contato</option>
+              <option value="eliminacao">Apagar meus dados</option>
+              <option value="outro">Outro</option>
+            </select>
+          </label>
+          <label>Detalhe (opcional) <textarea id="d-detalhe" rows="2"></textarea></label>
+          <p class="ajuda">Alguns registros podem precisar ser guardados por obrigação legal. Nesse caso, o Encarregado explica o motivo e por quanto tempo.</p>
+          <button class="botao" type="submit">Enviar pedido</button>
+        </form>
+        <div id="saida-direitos" class="recibo" role="status" aria-live="polite" hidden></div>
+      </div>
     </section>
 
     <!-- PAINEL -->
@@ -158,7 +182,7 @@
         <label>Chave de acesso <input id="c-chave" type="password" autocomplete="off" required></label>
         <button class="botao" type="submit">Salvar</button>
       </form>
-      <p class="ajuda">Ambiente de desenvolvimento: campo-dev, revisor-dev, sigilo-dev, gestor-dev, governanca-dev. Em produção: SSO corporativo.</p>
+      <p class="ajuda">Ambiente de desenvolvimento: campo-dev, revisor-dev, sigilo-dev, gestor-dev, governanca-dev, dpo-dev. Em produção: SSO corporativo.</p>
     </section>
   </main>
 

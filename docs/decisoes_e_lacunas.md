@@ -14,7 +14,13 @@
    *Depende de parecer jurídico (J1).*
 6. **Offline:** o código de consulta é gerado no aparelho (a pessoa sai com ele na hora); o protocolo chega
    no sync. Após o envio, o aparelho apaga o conteúdo e guarda só o protocolo.
-7. **Fallback do Claude:** `fallbacks="default"` (server-side) em recusas; qualquer falha restante cai no modo
+7. **Direitos do titular sem nova credencial:** protocolo + código de consulta autenticam o titular,
+   inclusive anônimo, e compartilham o limite de tentativas da consulta de status. Pedidos de eliminação
+   **nunca** apagam conteúdo automaticamente: vão ao DPO, porque pode haver obrigação de guarda (UC-10).
+8. **Descarte não quebra a imutabilidade:** só `retention.py` pode trocar o original por um marcador,
+   mantendo o `hash_original` e registrando o evento `descarte`. Qualquer outra tentativa continua
+   bloqueada.
+9. **Fallback do Claude:** `fallbacks="default"` (server-side) em recusas; qualquer falha restante cai no modo
    determinístico e é auditada (`llm_falha`). O registro nunca depende do provedor.
 
 ## Limitações conhecidas (honestas)
@@ -30,7 +36,6 @@
   casual do banco, não contra um aparelho comprometido.
 - **Integrações** CRM/ouvidoria/ERP são stubs com outbox (fora do escopo do MVP).
 - **Uma única máquina no Fly** (SQLite em volume): sem alta disponibilidade até migrar para Postgres.
-- **Rotação da chave de cifra** não automatizada.
 - **Indicadores** calculados em memória; para volume real, usar visões SQL materializadas.
 
 ## Bloqueios antes do piloto (cap. 17)
@@ -38,7 +43,7 @@
 | Pergunta | Por que bloqueia |
 |---|---|
 | J1/J4 — base legal por modo de identificação; anonimato e código | Define consentimento, retenção e a regra de emergência |
-| J2/J3 — prazos de guarda e exclusão | Hoje não há rotina de descarte |
+| J2/J3 — prazos de guarda e exclusão | A rotina de descarte existe (`escuta/retention.py`), mas sem prazos aprovados nada é descartado |
 | J7 — política antirretaliação formal | O fluxo D-11 promete encaminhamento à Ouvidoria |
 | O2/O3 — plantão P1 e lista nominal de revisores sigilosos | Sem isso, a fila P1 e a rota sigilosa não têm dono real |
 | C2 — povos indígenas/tradicionais no território-piloto | Se houver, exige consulta prévia (OIT 169) antes de operar |
