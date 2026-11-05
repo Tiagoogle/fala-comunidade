@@ -1,0 +1,46 @@
+{
+  "versao": "kb-0.1-semente",
+  "aviso": "Base semente: contém APENAS conteúdo sobre o próprio canal, extraído da especificação v1.0. Informações sobre operações, obras, projetos e impactos devem ser produzidas e aprovadas pelas áreas responsáveis (spec §2.6, P2) antes do piloto. Sem conteúdo aprovado, o agente responde que não tem a informação e oferece encaminhamento.",
+  "documentos": [
+    {
+      "id": "canal-o-que-faz",
+      "titulo": "o que o assistente faz e não faz",
+      "conteudo": "O Escuta+ é um assistente digital: registra o que você contar, gera um protocolo para acompanhamento, sugere para qual equipe o caso vai e informa o andamento. Ele não decide sobre indenização, culpa ou obras, não negocia e não encerra casos sozinho — essas decisões são de pessoas da equipe. Você pode falar com uma pessoa a qualquer momento.",
+      "fonte": "Especificação do agente Escuta+ v1.0 (§1.2, §3.7)",
+      "publicado_em": "2026-11-01",
+      "palavras_chave": ["assistente", "robo", "faz", "decide", "quem", "funciona", "escuta", "canal", "ia", "inteligencia", "artificial"]
+    },
+    {
+      "id": "canal-protocolo",
+      "titulo": "protocolo e código de consulta",
+      "conteudo": "Cada registro recebe um número de protocolo e um código de consulta de 6 dígitos. Com os dois, você acompanha o andamento quando quiser, sem precisar repetir a história. Guarde os dois números: sem o código, ninguém consegue consultar o caso por este canal.",
+      "fonte": "Especificação do agente Escuta+ v1.0 (UC-07, UC-09)",
+      "publicado_em": "2026-11-01",
+      "palavras_chave": ["protocolo", "codigo", "consulta", "acompanhar", "andamento", "numero", "status"]
+    },
+    {
+      "id": "canal-privacidade",
+      "titulo": "privacidade e uso dos dados",
+      "conteudo": "Guardamos o que você conta, os anexos que envia e o histórico do atendimento, para tratar sua manifestação e prestar contas. Não usamos isso para outra finalidade, não fazemos perfil pessoal e não compartilhamos sem autorização, exceto obrigação legal. Você pode se identificar, pedir sigilo ou registrar sem identificação. Você pode pedir acesso, correção e explicação ao Encarregado de Proteção de Dados. O prazo de guarda segue a política aprovada pela empresa.",
+      "fonte": "Especificação do agente Escuta+ v1.0 (UC-10) — texto a validar com o DPO",
+      "publicado_em": "2026-11-01",
+      "palavras_chave": ["privacidade", "dados", "lgpd", "guardam", "compartilham", "dpo", "encarregado", "sigilo", "anonimo"]
+    },
+    {
+      "id": "canal-emergencia",
+      "titulo": "o que fazer em emergência",
+      "conteudo": "Em caso de risco à vida, acidente, incêndio, ameaça ou desabamento, ligue imediatamente para os serviços públicos: SAMU 192, Bombeiros 193, Polícia Militar 190, Polícia Civil 194, Defesa Civil 199, Direitos Humanos 100, Central de Atendimento à Mulher 180. O assistente não envia resgate; ele registra e aciona uma pessoa da equipe.",
+      "fonte": "Especificação do agente Escuta+ v1.0 (§5.14.5)",
+      "publicado_em": "2026-11-01",
+      "palavras_chave": ["emergencia", "socorro", "samu", "bombeiros", "policia", "defesa", "civil", "ligar", "numero"]
+    },
+    {
+      "id": "canal-anonimato",
+      "titulo": "registro sem identificação",
+      "conteudo": "Você pode registrar sem dizer quem é. Nesse caso a empresa não sabe quem você é e não consegue te procurar para dar retorno; em troca, você recebe protocolo e código para acompanhar o andamento quando quiser. Mesmo sem identificação, se houver risco imediato a alguém, você será orientado sobre os serviços de emergência e a equipe será acionada — sem quebrar o anonimato.",
+      "fonte": "Especificação do agente Escuta+ v1.0 (UC-09, D-08)",
+      "publicado_em": "2026-11-01",
+      "palavras_chave": ["anonimo", "anonimato", "identificar", "nome", "sem", "sigilo", "identificacao"]
+    }
+  ]
+}

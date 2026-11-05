@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+backend/escuta.db
+backend/*.db
+backend/anexos/
+backend/.chave_dev.key
+.env
+backend/ci.db

@@ -1,0 +1,23 @@
+name: rotinas
+# Rotinas periódicas do Escuta+: sinalizar atrasos à coordenação, processar o outbox de
+# integrações e aplicar a política de retenção (só descarta o que ESCUTA_RETENCAO definir).
+# Requer os secrets ESCUTA_URL (ex.: https://alocomunidade.netlify.app/api) e
+# ESCUTA_CHAVE_ROTINAS (chave de acesso com papel "governanca").
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  rotinas:
+    runs-on: ubuntu-latest
+    if: ${{ vars.ROTINAS_ATIVAS == 'true' }}
+    steps:
+      - name: POST /admin/rotinas
+        env:
+          URL: ${{ secrets.ESCUTA_URL }}
+          CHAVE: ${{ secrets.ESCUTA_CHAVE_ROTINAS }}
+        run: |
+          curl -fsS -X POST "$URL/admin/rotinas" -H "X-Chave-Acesso: $CHAVE" -o resultado.json
+          cat resultado.json

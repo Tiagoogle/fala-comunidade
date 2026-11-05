@@ -1,0 +1,11 @@
+{
+  "name": "Escuta+ · Agente de campo",
+  "short_name": "Escuta+",
+  "lang": "pt-BR",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f8f8",
+  "theme_color": "#0f4c5c",
+  "icons": [{ "src": "icone.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
